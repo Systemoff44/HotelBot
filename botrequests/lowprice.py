@@ -2,9 +2,9 @@ import requests
 import json
 
 
-url = "https://hotels4.p.rapidapi.com/locations/search"
+url = "https://hotels4.p.rapidapi.com/locations/v2/search"
 
-querystring = {"query": "Санкт-Петербург", "locale": "en_US"}
+querystring = {"query": "Санкт-Петербург", "locale": "en_US", "currency": "USD"}
 
 headers = {
     'x-rapidapi-host': "hotels4.p.rapidapi.com",
@@ -12,5 +12,6 @@ headers = {
     }
 
 response = requests.request("GET", url, headers=headers, params=querystring)
+all_hotels = json.loads(response.text)
 
-print(response.text)
+print(all_hotels)
