@@ -1,17 +1,25 @@
-import requests
-import json
+# import requests
+# import json
+from data_base import sqlite_db
 
 
-url = "https://hotels4.p.rapidapi.com/locations/v2/search"
+db = sqlite_db.DBHelper
 
-querystring = {"query": "Санкт-Петербург", "locale": "en_US", "currency": "USD"}
 
-headers = {
-    'x-rapidapi-host': "hotels4.p.rapidapi.com",
-    'x-rapidapi-key': "9a96ad3166mshcb1e0c50caf0471p18b161jsnc1276688d044"
-    }
+def foo():
+    db.get_items()
 
-response = requests.request("GET", url, headers=headers, params=querystring)
-all_hotels = json.loads(response.text)
+# url = "https://hotels4.p.rapidapi.com/locations/v2/search"
 
-print(all_hotels)
+# querystring = {"query": "Санкт-Петербург",
+#                "locale": "en_US", "currency": "USD"}
+
+# headers = {
+#     'x-rapidapi-host': "hotels4.p.rapidapi.com",
+#     'x-rapidapi-key': "9a96ad3166mshcb1e0c50caf0471p18b161jsnc1276688d044"
+#     }
+
+# response = requests.request("GET", url, headers=headers, params=querystring)
+# all_hotels = json.loads(response.text)
+
+# print(all_hotels)

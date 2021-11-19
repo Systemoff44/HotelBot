@@ -1,1 +1,1 @@
-from botrequests.keybord import keybord_client
+from botrequests import lowprice

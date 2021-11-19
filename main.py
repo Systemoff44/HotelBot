@@ -1,84 +1,73 @@
-from aiogram import Bot, types
-from aiogram.dispatcher import Dispatcher, FSMContext
-from aiogram.dispatcher.filters.state import State, StatesGroup
-from aiogram.utils import executor
 from decouple import config
-from botrequests import keybord_client
-from aiogram.contrib.fsm_storage.memory import MemoryStorage
+import telebot
 from data_base import sqlite_db
+from telebot import types
+from botrequests import lowprice
+
+
+bot = telebot.TeleBot(config('Token'))
+db = sqlite_db.DBHelper()
+db.setup()
+
+keyboard = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+keyboard.add("/lowprice", "/highprice")
+keyboard.add("/bestdeal", "/history")
+keyboard.add("/cancel")
+
+
+@bot.message_handler(commands=["start"])
+def start_message(message):
+    bot.send_message(message.chat.id, "Выберите команду", reply_markup=keyboard)
+
+
+@bot.message_handler(commands=["lowprice", "highprice", "bestdeal", "history"])
+def all_commands(message):
+    global comma
+    comma = message.text
+    bot.send_message(message.chat.id, "Введите город")
+    bot.register_next_step_handler(message, city)
+
+
+def city(message):
+    db.city = message.text
+    bot.send_message(message.chat.id, "Введите количество отелей")
+    bot.register_next_step_handler(message, quantity)
+
+
+def quantity(message):
+    db.quantity = message.text
+    bot.send_message(message.chat.id, "Нужны фотографии?")
+    bot.register_next_step_handler(message, photo)
+
+
+def photo(message):
+    if str(message.text).lower() == "нет":
+        db.photo = 0
+        db.add_data()
+        bot.send_message(message.chat.id, "Записал")
+        if comma == "/lowprice":
+            bot.send_message(message.chat.id, str(lowprice.foo()))
+
+    elif str(message.text).lower() == "да":
+        bot.send_message(message.chat.id, "Сколько фотографий?")
+        bot.register_next_step_handler(message, second_quantity)
+
+    else:
+        bot.send_message(message.chat.id, "Введите да или нет")
+        bot.register_next_step_handler(message, photo)
+
+
+def second_quantity(message):
+    db.photo = message.text
+    db.add_data()
+    bot.send_message(message.chat.id, "Записал!")
+
+
+@bot.message_handler(content_types=["text"])
+def error_message(message):
+    bot.send_message(message.chat.id, "Выберите команду из списка",
+                     reply_markup=keyboard)
 
 
 if __name__ == '__main__':
-    storage = MemoryStorage()
-
-    bot = Bot(config('Token'))
-    dp = Dispatcher(bot, storage=storage)
-
-
-    async def on_startup(_):
-        print("Бот запущен")
-        sqlite_db.sql_start()
-
-    class ReceiveData(StatesGroup):
-        city = State()
-        quantity = State()
-        photo = State()
-        quantity_photo = State()
-
-    @dp.message_handler(commands=["start", "help"])
-    async def command_start(message: types.Message):
-        await bot.send_message(message.from_user.id, "Выберите команду", reply_markup=keybord_client)
-
-    # Начало диалога после любой команды
-    @dp.message_handler(commands=["lowprice", "highprice", "history", "bestdeal"], state=None)
-    async def all_command(message: types.Message):
-        global command
-        command = message.text
-        await ReceiveData.city.set()
-        await message.reply("Укажите город")
-
-    # Ловим ответ и пишем в словарь
-    @dp.message_handler(state=ReceiveData.city)
-    async def receive_city(message: types.Message, state: FSMContext):
-        async with state.proxy() as data:
-            data["city"] = message.text
-        await ReceiveData.next()
-        await message.reply("Укажите количество отелей")
-
-    # Ловим второй ответ
-    @dp.message_handler(state=ReceiveData.quantity)
-    async def receive_quantity(message: types.Message, state: FSMContext):
-        async with state.proxy() as data:
-            data["quantity"] = int(message.text)
-        await ReceiveData.next()
-        await message.reply("Нужны ли фотографии? (да/нет)")
-
-    # Ловим третий ответ
-    @dp.message_handler(state=ReceiveData.photo)
-    async def receive_photo(message: types.Message, state: FSMContext):
-        if message.text == "да":
-            await ReceiveData.next()
-            await message.reply("Сколько фотографий?")
-        elif message.text == "нет":
-            async with state.proxy() as data:
-                data["photo"] = message.text
-
-            await sqlite_db.sql_add_command(state)
-            await state.finish()
-
-    # Ловим четвертый возможный ответ
-    @dp.message_handler(state=ReceiveData.quantity_photo)
-    async def receive_another_photo(message: types.Message, state: FSMContext):
-        async with state.proxy() as data:
-            data["photo"] = int(message.text)
-        await sqlite_db.sql_add_command(state)
-
-        await state.finish()
-
-    # Здесь будет реализовываться команда /lowprice
-    async def command_execution():
-        if command == "/lowprice":
-            pass
-
-
-    executor.start_polling(dp, skip_updates=True, on_startup=on_startup)
+    bot.polling(none_stop=True, interval=0)
