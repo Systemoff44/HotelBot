@@ -1,23 +1,32 @@
 import sqlite3
 
 
-def sql_start():
-    global base, cur
-    base = sqlite3.connect("users_data.db")
-    cur = base.cursor()
-    if base:
-        print("Data base connected")
-    base.execute("CREATE TABLE IF NOT EXISTS data(city, quantity, photo)")
-    base.commit()
+class DBHelper:
+    def __init__(self, dbname="database.db"):
+        self.dbname = dbname
+        self.conn = sqlite3.connect(dbname, check_same_thread=False)
+        self.city = None
+        self.quantity = None
+        self.photo = None
 
+    def setup(self):
+        create = "CREATE TABLE IF NOT EXISTS data (city, quantity, photo)"
+        self.conn.execute(create)
+        self.conn.commit()
 
-async def sql_add_command(state):
-    async with state.proxy() as data:
-        cur.execute("INSERT INTO data VALUES (?, ?, ?)", tuple(data.values()))
-        base.commit()
+    def add_data(self):
+        insert = "INSERT INTO data(city, quantity, photo) VALUES (?, ?, ?)"
+        self.conn.execute(insert, (self.city, self.quantity, self.photo))
+        self.conn.commit()
 
+    # def delete_item(self, item_text):
+    #     delete = "DELETE FROM items WHERE description = (?)"
+    #     args = (item_text, )
+    #     self.conn.execute(delete, args)
+    #     self.conn.commit()
+    #
+    def get_items(self):
+        select = "SELECT description FROM items"
+        return [x[0] for x in self.conn.execute(select)]
 
-async def sql_receive(message):
-    for response in cur.execute("SELECT * FROM data").fetchall():
-        return message.from_user.id, response[0], f"{response[1]}"
 
