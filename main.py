@@ -24,6 +24,7 @@ def start_message(message):
 def all_commands(message):
     global comma
     comma = message.text
+def start_message(message):
     bot.send_message(message.chat.id, "Введите город")
     bot.register_next_step_handler(message, city)
 

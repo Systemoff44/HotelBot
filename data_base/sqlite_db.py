@@ -19,6 +19,7 @@ class DBHelper:
         self.conn.execute(insert, (self.city, self.quantity, self.photo))
         self.conn.commit()
 
+
     # def delete_item(self, item_text):
     #     delete = "DELETE FROM items WHERE description = (?)"
     #     args = (item_text, )
