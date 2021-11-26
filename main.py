@@ -24,7 +24,6 @@ def start_message(message):
 def all_commands(message):
     global comma
     comma = message.text
-def start_message(message):
     bot.send_message(message.chat.id, "Введите город")
     bot.register_next_step_handler(message, city)
 
@@ -47,6 +46,7 @@ def photo(message):
         db.add_data()
         bot.send_message(message.chat.id, "Записал")
         if comma == "/lowprice":
+            # bot.send_message(message.chat.id, str(db.get_items()))
             bot.send_message(message.chat.id, str(lowprice.foo()))
 
     elif str(message.text).lower() == "да":
