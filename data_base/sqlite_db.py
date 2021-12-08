@@ -1,6 +1,5 @@
 import sqlite3
 
-
 class DBHelper:
     def __init__(self, dbname="database.db"):
         self.dbname = dbname
@@ -27,6 +26,11 @@ class DBHelper:
     #     self.conn.commit()
     #
     def get_items(self):
-        select = "SELECT city FROM data ORDER BY ROWID DESC LIMIT 1"
+        select_city = "SELECT city FROM data ORDER BY ROWID DESC LIMIT 1"
+        select_quantity = "SELECT quantity FROM data ORDER BY ROWID DESC LIMIT 1"
+        select_photo = "SELECT photo FROM data ORDER BY ROWID DESC LIMIT 1"
         cur = self.conn.cursor()
-        return cur.execute(select).fetchone()[0]
+        city = cur.execute(select_city).fetchone()[0]
+        quantity = cur.execute(select_quantity).fetchone()[0]
+        photo = cur.execute(select_photo).fetchone()[0]
+        return city, quantity, photo

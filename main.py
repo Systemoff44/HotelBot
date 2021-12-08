@@ -9,19 +9,21 @@ bot = telebot.TeleBot(config('Token'))
 db = sqlite_db.DBHelper()
 db.setup()
 
+# создание клавиатуры
 keyboard = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
 keyboard.add("/lowprice", "/highprice")
 keyboard.add("/bestdeal", "/history")
 keyboard.add("/cancel")
 
-
-@bot.message_handler(commands=["start"])
+# начало работы команда start и help 
+@bot.message_handler(commands=["start", "help"])
 def start_message(message):
     bot.send_message(message.chat.id, "Выберите команду", reply_markup=keyboard)
 
 
 @bot.message_handler(commands=["lowprice", "highprice", "bestdeal", "history"])
 def all_commands(message):
+    # в глобальную переменную comma попадает сама команда
     global comma
     comma = message.text
     bot.send_message(message.chat.id, "Введите город")
@@ -35,9 +37,14 @@ def city(message):
 
 
 def quantity(message):
-    db.quantity = message.text
-    bot.send_message(message.chat.id, "Нужны фотографии?")
-    bot.register_next_step_handler(message, photo)
+    try:
+        digit = int(message.text)
+        db.quantity = digit
+        bot.send_message(message.chat.id, "Нужны фотографии?")
+        bot.register_next_step_handler(message, photo)
+    except ValueError:
+        bot.send_message(message.chat.id, "Введите цифру")
+        bot.register_next_step_handler(message, quantity)
 
 
 def photo(message):
@@ -46,8 +53,7 @@ def photo(message):
         db.add_data()
         bot.send_message(message.chat.id, "Записал")
         if comma == "/lowprice":
-            # bot.send_message(message.chat.id, str(db.get_items()))
-            bot.send_message(message.chat.id, str(lowprice.foo()))
+            lowprice_command(message)
 
     elif str(message.text).lower() == "да":
         bot.send_message(message.chat.id, "Сколько фотографий?")
@@ -59,10 +65,33 @@ def photo(message):
 
 
 def second_quantity(message):
-    db.photo = message.text
-    db.add_data()
-    bot.send_message(message.chat.id, "Записал!")
+    try:
+        digit = int(message.text)
+        db.photo = digit
+        db.add_data()
+        bot.send_message(message.chat.id, "Записал!")
+        lowprice_command(message)
+    except ValueError:
+        bot.send_message(message.chat.id, "Введите цифру")
+        bot.register_next_step_handler(message, second_quantity)
 
+
+def lowprice_command(message):
+    bot.send_message(message.chat.id, "Подождите, ищем...")
+
+    parsing_data = lowprice.start_of_searh()
+    if parsing_data:
+        for item in parsing_data:
+            bot.send_message(message.chat.id, f"Название: {item[0]}")
+            bot.send_message(message.chat.id, f"Адрес: {item[1]}")
+            bot.send_message(message.chat.id, f"От центра: {item[2]}")
+            bot.send_message(message.chat.id, f"Цена: {item[3]}")
+            bot.send_message(message.chat.id, "="*30)
+    else:
+        bot.send_message(message.chat.id, "Не корректно введен город")
+        bot.send_photo(message.chat.id, "https://exp.cdn-hotels.com/hotels/16000000/15410000/15403500/15403453/2af5883d_300px.jpg")
+        bot.send_message(message.chat.id, "Выберите команду из списка",
+                         reply_markup=keyboard)
 
 @bot.message_handler(content_types=["text"])
 def error_message(message):
