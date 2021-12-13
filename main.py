@@ -15,7 +15,8 @@ keyboard.add("/lowprice", "/highprice")
 keyboard.add("/bestdeal", "/history")
 keyboard.add("/cancel")
 
-# начало работы команда start и help 
+
+# начало работы команда start и help
 @bot.message_handler(commands=["start", "help"])
 def start_message(message):
     bot.send_message(message.chat.id, "Выберите команду", reply_markup=keyboard)
@@ -76,6 +77,7 @@ def second_quantity(message):
         bot.register_next_step_handler(message, second_quantity)
 
 
+# реализация команды lowprice
 def lowprice_command(message):
     bot.send_message(message.chat.id, "Подождите, ищем...")
 
@@ -86,13 +88,18 @@ def lowprice_command(message):
             bot.send_message(message.chat.id, f"Адрес: {item[1]}")
             bot.send_message(message.chat.id, f"От центра: {item[2]}")
             bot.send_message(message.chat.id, f"Цена: {item[3]}")
+            if isinstance(item[4], list):
+                for url_photo in item[4]:
+                    url_photo = url_photo.format(size="b")
+                    bot.send_photo(message.chat.id, photo=url_photo)
             bot.send_message(message.chat.id, "="*30)
     else:
         bot.send_message(message.chat.id, "Не корректно введен город")
-        bot.send_photo(message.chat.id, "https://exp.cdn-hotels.com/hotels/16000000/15410000/15403500/15403453/2af5883d_300px.jpg")
         bot.send_message(message.chat.id, "Выберите команду из списка",
                          reply_markup=keyboard)
 
+
+# если пользователем введена не команда
 @bot.message_handler(content_types=["text"])
 def error_message(message):
     bot.send_message(message.chat.id, "Выберите команду из списка",
