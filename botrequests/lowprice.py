@@ -7,13 +7,27 @@ def fetch_sqlite_data():
     """Возвращает последние записанные данные из библиотеки sqlite
 
     Returns:
-        (tuple): кортеж из city(город), quantity(количество отелей),
+        (str): переменные: city(город), checkin (дата въезда),
+        checkout(дата окончания брони), quantity(количество отелей),
         photo(количесто фотографий)
     """
     db = sqlite_db.DBHelper()
     db.setup()
-    city, quantity, photo = db.get_items()
-    return city, quantity, photo
+    city, checkin, checkout, quantity, photo = db.get_items()
+    return city, checkin, checkout, quantity, photo
+
+
+def fetch_quantities_from_sqlite():
+    """Возвращает введенные пользователем количество отелей и фотографий
+
+    Returns:
+        (int): две переменные: ко-во отелей и кол-во фотографий
+    """
+    db = sqlite_db.DBHelper()
+    db.setup()
+    city, checkin, checkout, quantity, photo = db.get_items()
+    one_data = (city, checkin, checkout, quantity, photo)
+    return one_data[3], one_data[4]
 
 
 def fetch_all_data(city):
@@ -32,7 +46,7 @@ def fetch_all_data(city):
 
     headers = {
         'x-rapidapi-host': "hotels4.p.rapidapi.com",
-        'x-rapidapi-key': "2d60be85b7msh4b7355e10904784p180a8djsn007663a7d253"
+        'x-rapidapi-key': "35ce207bd7msh61c9b015f9fc9bdp19afe5jsn2c1984721195"
         }
 
     response = requests.request("GET", url, headers=headers, params=querystring)
@@ -66,11 +80,13 @@ def fetch_needed_data(struct, key):
                 yield forth_item
 
 
-def fetch_hotel_details(number_id):
+def fetch_hotel_details(number_id, data_in, data_out):
     """Делает парсинг всех данных по определенному id места
 
     Args:
         number_id (int): номер id
+        data_in (str): дата заезда
+        data_out (str): дата уезда
 
     Returns:
         (dict): данные с отелями по определенному id места
@@ -78,12 +94,12 @@ def fetch_hotel_details(number_id):
     url = "https://hotels4.p.rapidapi.com/properties/list"
 
     querystring = {"destinationId": number_id, "pageNumber": "1", "pageSize": "25",
-                   "checkIn": "2020-01-08", "checkOut": "2020-01-15", "adults1": "1",
+                   "checkIn": data_in, "checkOut": data_out, "adults1": "1",
                    "sortOrder": "PRICE", "locale": "ru_RU", "currency": "RUB"}
 
     headers = {
         'x-rapidapi-host': "hotels4.p.rapidapi.com",
-        'x-rapidapi-key': "2d60be85b7msh4b7355e10904784p180a8djsn007663a7d253"
+        'x-rapidapi-key': "35ce207bd7msh61c9b015f9fc9bdp19afe5jsn2c1984721195"
         }
 
     response = requests.request("GET", url, headers=headers, params=querystring)
@@ -99,7 +115,7 @@ def fetch_hotel_photos(hotel_id):
 
     headers = {
         'x-rapidapi-host': "hotels4.p.rapidapi.com",
-        'x-rapidapi-key': "2d60be85b7msh4b7355e10904784p180a8djsn007663a7d253"
+        'x-rapidapi-key': "35ce207bd7msh61c9b015f9fc9bdp19afe5jsn2c1984721195"
         }
 
     response = requests.request("GET", url, headers=headers, params=querystring)
@@ -127,14 +143,19 @@ def fetch_all_data_from_parsing(all_data, city):
         try:
             # проверка тот ли город в данных
             if all_data["data"]["body"]["searchResults"][
-                        "results"][index]["address"]["locality"] == city:
+                        "results"][index]["address"]["locality"].lower() == city.lower():
                 # сбор данных в кортеж
                 name = all_data["data"]["body"]["searchResults"]["results"][index]["name"]
                 adress = all_data["data"]["body"]["searchResults"]["results"][index]["address"]["streetAddress"]
                 center = all_data["data"]["body"]["searchResults"]["results"][index]["landmarks"][0]["distance"]
                 price = all_data["data"]["body"]["searchResults"]["results"][index]["ratePlan"]["price"]["exactCurrent"]
                 id = all_data["data"]["body"]["searchResults"]["results"][index]["id"]
-                result = (name, adress, center, price, id)
+                photo = 0
+                if "info" in all_data["data"]["body"]["searchResults"]["results"][index]["ratePlan"]["price"]:
+                    info = all_data["data"]["body"]["searchResults"]["results"][index]["ratePlan"]["price"]["info"]
+                    result = (name, adress, center, price, id, photo, info)
+                else:
+                    result = (name, adress, center, price, id, photo)
                 yield result
             else:
                 return
@@ -161,11 +182,15 @@ def search_for_photos(data, quantity):
         adress = data[index][1]
         center = data[index][2]
         price = data[index][3]
+        id = data[index][4]
         photo = []
         for second_index in range(quantity):
             url = item["hotelImages"][second_index]["baseUrl"]
             photo.append(url)
-        result = (name, adress, center, price, photo)
+        if len(data[index]) > 6:
+            result = (name, adress, center, price, id, photo, data[index][6])
+        else:
+            result = (name, adress, center, price, id, photo)
         new_data_with_photos.append(result)
     return new_data_with_photos
 
@@ -177,7 +202,8 @@ def start_of_searh():
         (list): список отелей, состоит из кортежей с необходимой информацией
     """
     # извлечение переменных с именем города, кол-вом отелей и фотографий
-    city_name, hotel_quantity, photo_quantity = fetch_sqlite_data()
+    (city_name, hotel_checkin, hotel_checkout,
+     hotel_quantity, photo_quantity) = fetch_sqlite_data()
     # извлечение данных по отелям
     hotels_data = fetch_all_data(city_name)
     if hotels_data:
@@ -185,7 +211,7 @@ def start_of_searh():
 
         hotels = []
         for id in all_id:
-            data = fetch_hotel_details(id)
+            data = fetch_hotel_details(id, hotel_checkin, hotel_checkout)
             extracted_data = list(fetch_all_data_from_parsing(data, city_name))
             hotels.append(extracted_data)
         # избавление от лишних списков внутри основного списка и затем избавление от дубликатов

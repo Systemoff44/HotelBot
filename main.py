@@ -3,6 +3,7 @@ import telebot
 from data_base import sqlite_db
 from telebot import types
 from botrequests import lowprice
+from telegram_bot_calendar import DetailedTelegramCalendar
 
 
 bot = telebot.TeleBot(config('Token'))
@@ -21,6 +22,9 @@ keyboard.add("/cancel")
 def start_message(message):
     bot.send_message(message.chat.id, "Выберите команду", reply_markup=keyboard)
 
+@bot.message_handler(commands=["cancel"])
+def start_message(message):
+    bot.send_message(message.chat.id, "До свидания!", reply_markup=types.ReplyKeyboardRemove())
 
 @bot.message_handler(commands=["lowprice", "highprice", "bestdeal", "history"])
 def all_commands(message):
@@ -28,11 +32,57 @@ def all_commands(message):
     global comma
     comma = message.text
     bot.send_message(message.chat.id, "Введите город")
-    bot.register_next_step_handler(message, city)
+    bot.register_next_step_handler(message, calendar_checkin)
 
 
-def city(message):
+def calendar_checkin(message):
     db.city = message.text
+    calendar, step = DetailedTelegramCalendar(calendar_id=1).build()
+    LSTEP = {"y": "год", "m": "месяц", "d": "день"}
+    bot.send_message(message.chat.id, "Выберите когда будете заезжать")
+    bot.send_message(message.chat.id,
+                     f"Выберите {LSTEP[step]}",
+                     reply_markup=calendar)
+
+
+def calendar_checkout(message):
+    calendar, step = DetailedTelegramCalendar(calendar_id=2).build()
+    LSTEP = {"y": "год", "m": "месяц", "d": "день"}
+    bot.send_message(message.chat.id, "Выберите когда будете уезжать")
+    bot.send_message(message.chat.id,
+                     f"Выберите {LSTEP[step]}",
+                     reply_markup=calendar)
+
+
+@bot.callback_query_handler(func=DetailedTelegramCalendar.func(calendar_id=1))
+def call(item):
+    result, key, step = DetailedTelegramCalendar(calendar_id=1, locale="ru").process(item.data)
+    if not result and key:
+        LSTEP = {"y": "год", "m": "месяц", "d": "день"}
+        bot.edit_message_text(f"Выберите {LSTEP[step]}",
+                              item.message.chat.id,
+                              item.message.message_id,
+                              reply_markup=key)
+    if result:
+        bot.send_message(item.message.chat.id, f"Вы заезжаете {result}")
+        db.checkin = result
+        calendar_checkout(item.message)
+
+@bot.callback_query_handler(func=DetailedTelegramCalendar.func(calendar_id=2))
+def call(item):
+    result, key, step = DetailedTelegramCalendar(calendar_id=2, locale="ru").process(item.data)
+    if not result and key:
+        LSTEP = {"y": "год", "m": "месяц", "d": "день"}
+        bot.edit_message_text(f"Выберите {LSTEP[step]}",
+                              item.message.chat.id,
+                              item.message.message_id,
+                              reply_markup=key)
+    if result:
+        bot.send_message(item.message.chat.id, f"Вы уезжаете {result}")
+        db.checkout = result
+        city(item.message)
+      
+def city(message):
     bot.send_message(message.chat.id, "Введите количество отелей")
     bot.register_next_step_handler(message, quantity)
 
@@ -83,16 +133,34 @@ def lowprice_command(message):
 
     parsing_data = lowprice.start_of_searh()
     if parsing_data:
+        # Запрос из бд количество отелей и фотографий, которые ввел пользователь,
+        # если цифра меньше, выведется сообщение о том, что нашлось меньше, чем нужно
+        quantity, photo = lowprice.fetch_quantities_from_sqlite()
+        if quantity > len(parsing_data):
+            bot.send_message(message.chat.id,
+                             f"Вы запрашивали {quantity} отелей, но нашлось только {len(parsing_data)}")
         for item in parsing_data:
             bot.send_message(message.chat.id, f"Название: {item[0]}")
             bot.send_message(message.chat.id, f"Адрес: {item[1]}")
             bot.send_message(message.chat.id, f"От центра: {item[2]}")
-            bot.send_message(message.chat.id, f"Цена: {item[3]}")
-            if isinstance(item[4], list):
-                for url_photo in item[4]:
+            if len(item) > 6:
+                bot.send_message(message.chat.id, f"Цена: {item[3]}, {item[6]}")
+            else:
+                bot.send_message(message.chat.id, "Вы некорректно указали даты:")
+                bot.send_message(message.chat.id, f"Цена: {item[3]} (цена за сутки)")
+            bot.send_message(message.chat.id, f"{quantity}, {photo}")
+            bot.send_message(message.chat.id,
+                             f"Ссылка на сайт: https://ru.hotels.com/ho{item[4]}")
+            if isinstance(item[5], list):
+                if photo > len(item[5]):
+                    bot.send_message(message.chat.id,
+                                     f"Вы хотели {photo} фотографи, но нашлось только {len(item[5])}")
+                for url_photo in item[5]:
                     url_photo = url_photo.format(size="b")
                     bot.send_photo(message.chat.id, photo=url_photo)
             bot.send_message(message.chat.id, "="*30)
+        bot.send_message(message.chat.id, "Хотите продолжить:",
+                         reply_markup=keyboard)
     else:
         bot.send_message(message.chat.id, "Не корректно введен город")
         bot.send_message(message.chat.id, "Выберите команду из списка",
