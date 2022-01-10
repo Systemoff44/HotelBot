@@ -1,33 +1,7 @@
 import requests
 import json
 from data_base import sqlite_db
-
-
-def fetch_sqlite_data():
-    """Возвращает последние записанные данные из библиотеки sqlite
-
-    Returns:
-        (str): переменные: city(город), checkin (дата въезда),
-        checkout(дата окончания брони), quantity(количество отелей),
-        photo(количесто фотографий)
-    """
-    db = sqlite_db.DBHelper()
-    db.setup()
-    city, checkin, checkout, quantity, photo = db.get_items()
-    return city, checkin, checkout, quantity, photo
-
-
-def fetch_quantities_from_sqlite():
-    """Возвращает введенные пользователем количество отелей и фотографий
-
-    Returns:
-        (int): две переменные: ко-во отелей и кол-во фотографий
-    """
-    db = sqlite_db.DBHelper()
-    db.setup()
-    city, checkin, checkout, quantity, photo = db.get_items()
-    one_data = (city, checkin, checkout, quantity, photo)
-    return one_data[3], one_data[4]
+from decouple import config
 
 
 def fetch_all_data(city):
@@ -46,7 +20,7 @@ def fetch_all_data(city):
 
     headers = {
         'x-rapidapi-host': "hotels4.p.rapidapi.com",
-        'x-rapidapi-key': "35ce207bd7msh61c9b015f9fc9bdp19afe5jsn2c1984721195"
+        'x-rapidapi-key': config("token_api")
         }
 
     response = requests.request("GET", url, headers=headers, params=querystring)
@@ -99,7 +73,7 @@ def fetch_hotel_details(number_id, data_in, data_out):
 
     headers = {
         'x-rapidapi-host': "hotels4.p.rapidapi.com",
-        'x-rapidapi-key': "35ce207bd7msh61c9b015f9fc9bdp19afe5jsn2c1984721195"
+        'x-rapidapi-key': config("token_api")
         }
 
     response = requests.request("GET", url, headers=headers, params=querystring)
@@ -115,7 +89,7 @@ def fetch_hotel_photos(hotel_id):
 
     headers = {
         'x-rapidapi-host': "hotels4.p.rapidapi.com",
-        'x-rapidapi-key': "35ce207bd7msh61c9b015f9fc9bdp19afe5jsn2c1984721195"
+        'x-rapidapi-key': config("token_api")
         }
 
     response = requests.request("GET", url, headers=headers, params=querystring)
@@ -203,7 +177,7 @@ def start_of_searh():
     """
     # извлечение переменных с именем города, кол-вом отелей и фотографий
     (city_name, hotel_checkin, hotel_checkout,
-     hotel_quantity, photo_quantity) = fetch_sqlite_data()
+     hotel_quantity, photo_quantity) = sqlite_db.fetch_sqlite_data()
     # извлечение данных по отелям
     hotels_data = fetch_all_data(city_name)
     if hotels_data:

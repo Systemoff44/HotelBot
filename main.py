@@ -28,14 +28,14 @@ def start_message(message):
 
 @bot.message_handler(commands=["lowprice", "highprice", "bestdeal", "history"])
 def all_commands(message):
-    # в глобальную переменную comma попадает сама команда
-    global comma
-    comma = message.text
+    # запись комманды пользователя в дб
+    db.command = message.text
     bot.send_message(message.chat.id, "Введите город")
     bot.register_next_step_handler(message, calendar_checkin)
 
 
 def calendar_checkin(message):
+    # запись города в дб и вывод клавиатуры для записи даты вьезда
     db.city = message.text
     calendar, step = DetailedTelegramCalendar(calendar_id=1).build()
     LSTEP = {"y": "год", "m": "месяц", "d": "день"}
@@ -81,6 +81,7 @@ def call(item):
         bot.send_message(item.message.chat.id, f"Вы уезжаете {result}")
         db.checkout = result
         city(item.message)
+    
       
 def city(message):
     bot.send_message(message.chat.id, "Введите количество отелей")
@@ -103,7 +104,8 @@ def photo(message):
         db.photo = 0
         db.add_data()
         bot.send_message(message.chat.id, "Записал")
-        if comma == "/lowprice":
+        command = sqlite_db.fetch_user_command()
+        if command == "/lowprice":
             lowprice_command(message)
 
     elif str(message.text).lower() == "да":
@@ -121,7 +123,11 @@ def second_quantity(message):
         db.photo = digit
         db.add_data()
         bot.send_message(message.chat.id, "Записал!")
-        lowprice_command(message)
+        command = sqlite_db.fetch_user_command()
+        if command == "/lowprice":
+            lowprice_command(message)
+        else:
+            bot.send_message(message.chat.id, command)
     except ValueError:
         bot.send_message(message.chat.id, "Введите цифру")
         bot.register_next_step_handler(message, second_quantity)
@@ -135,7 +141,7 @@ def lowprice_command(message):
     if parsing_data:
         # Запрос из бд количество отелей и фотографий, которые ввел пользователь,
         # если цифра меньше, выведется сообщение о том, что нашлось меньше, чем нужно
-        quantity, photo = lowprice.fetch_quantities_from_sqlite()
+        quantity, photo = sqlite_db.fetch_quantities_from_sqlite()
         if quantity > len(parsing_data):
             bot.send_message(message.chat.id,
                              f"Вы запрашивали {quantity} отелей, но нашлось только {len(parsing_data)}")
@@ -148,7 +154,6 @@ def lowprice_command(message):
             else:
                 bot.send_message(message.chat.id, "Вы некорректно указали даты:")
                 bot.send_message(message.chat.id, f"Цена: {item[3]} (цена за сутки)")
-            bot.send_message(message.chat.id, f"{quantity}, {photo}")
             bot.send_message(message.chat.id,
                              f"Ссылка на сайт: https://ru.hotels.com/ho{item[4]}")
             if isinstance(item[5], list):
