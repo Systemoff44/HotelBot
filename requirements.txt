@@ -1,7 +1,14 @@
 certifi==2021.10.8
 charset-normalizer==2.0.7
+flake8==4.0.1
 idna==3.3
+mccabe==0.6.1
+pycodestyle==2.8.0
+pyflakes==2.4.0
 pyTelegramBotAPI==4.2.0
+python-dateutil==2.8.2
 python-decouple==3.5
+python-telegram-bot-calendar==1.0.5
 requests==2.26.0
+six==1.16.0
 urllib3==1.26.7

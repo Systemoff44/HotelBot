@@ -169,7 +169,7 @@ def search_for_photos(data, quantity):
     return new_data_with_photos
 
 
-def start_of_searh():
+def start_of_searh(user_id):
     """Оснавная функция,которая запускает весь процесс
 
     Returns:
@@ -177,7 +177,7 @@ def start_of_searh():
     """
     # извлечение переменных с именем города, кол-вом отелей и фотографий
     (city_name, hotel_checkin, hotel_checkout,
-     hotel_quantity, photo_quantity) = sqlite_db.fetch_sqlite_data()
+     hotel_quantity, photo_quantity) = sqlite_db.fetch_sqlite_data(user_id)
     # извлечение данных по отелям
     hotels_data = fetch_all_data(city_name)
     if hotels_data:
