@@ -4,7 +4,7 @@ from data_base import sqlite_db
 from decouple import config
 
 
-def fetch_all_data(city):
+def fetch_all_data(city, headers):
     """Парсинг данных по определенному городу
 
     Args:
@@ -17,11 +17,6 @@ def fetch_all_data(city):
 
     querystring = {"query": city,
                    "locale": "ru_RU", "currency": "RUB"}
-
-    headers = {
-        'x-rapidapi-host': "hotels4.p.rapidapi.com",
-        'x-rapidapi-key': config("token_api")
-        }
 
     response = requests.request("GET", url, headers=headers, params=querystring)
     all_id = json.loads(response.text)
@@ -54,7 +49,7 @@ def fetch_needed_data(struct, key):
                 yield forth_item
 
 
-def fetch_hotel_details(number_id, data_in, data_out):
+def fetch_hotel_details(number_id, data_in, data_out, headers):
     """Делает парсинг всех данных по определенному id места
 
     Args:
@@ -71,26 +66,16 @@ def fetch_hotel_details(number_id, data_in, data_out):
                    "checkIn": data_in, "checkOut": data_out, "adults1": "1",
                    "sortOrder": "PRICE", "locale": "ru_RU", "currency": "RUB"}
 
-    headers = {
-        'x-rapidapi-host': "hotels4.p.rapidapi.com",
-        'x-rapidapi-key': config("token_api")
-        }
-
     response = requests.request("GET", url, headers=headers, params=querystring)
     all_details = json.loads(response.text)
 
     return all_details
 
 
-def fetch_hotel_photos(hotel_id):
+def fetch_hotel_photos(hotel_id, headers):
     url = "https://hotels4.p.rapidapi.com/properties/get-hotel-photos"
 
     querystring = {"id": hotel_id}
-
-    headers = {
-        'x-rapidapi-host': "hotels4.p.rapidapi.com",
-        'x-rapidapi-key': config("token_api")
-        }
 
     response = requests.request("GET", url, headers=headers, params=querystring)
     all_photos = json.loads(response.text)
@@ -137,7 +122,7 @@ def fetch_all_data_from_parsing(all_data, city):
             return
 
 
-def search_for_photos(data, quantity):
+def search_for_photos(data, quantity, head_parsing):
     """Получает готовый список из отелей и вместо переменной id записывает
        список из url картинок. Возвращает обратно список отелей
 
@@ -151,7 +136,7 @@ def search_for_photos(data, quantity):
     """
     new_data_with_photos = []
     for index in range(len(data)):
-        item = fetch_hotel_photos(data[index][4])
+        item = fetch_hotel_photos(data[index][4], head_parsing)
         name = data[index][0]
         adress = data[index][1]
         center = data[index][2]
@@ -175,17 +160,22 @@ def start_of_searh(user_id):
     Returns:
         (list): список отелей, состоит из кортежей с необходимой информацией
     """
+    headers_for_parsing = {
+        'x-rapidapi-host': "hotels4.p.rapidapi.com",
+        'x-rapidapi-key': config("token_api")
+        }
+
     # извлечение переменных с именем города, кол-вом отелей и фотографий
     (city_name, hotel_checkin, hotel_checkout,
      hotel_quantity, photo_quantity) = sqlite_db.fetch_sqlite_data(user_id)
     # извлечение данных по отелям
-    hotels_data = fetch_all_data(city_name)
+    hotels_data = fetch_all_data(city_name, headers_for_parsing)
     if hotels_data:
         all_id = list(fetch_needed_data(hotels_data, "destinationId"))
 
         hotels = []
         for id in all_id:
-            data = fetch_hotel_details(id, hotel_checkin, hotel_checkout)
+            data = fetch_hotel_details(id, hotel_checkin, hotel_checkout, headers_for_parsing)
             extracted_data = list(fetch_all_data_from_parsing(data, city_name))
             hotels.append(extracted_data)
         # избавление от лишних списков внутри основного списка и затем избавление от дубликатов
@@ -208,7 +198,7 @@ def start_of_searh(user_id):
         # если нужны фотографии (кол-во больше нуля), отправляет готовый список
         # в следующую функцию для парсинга фотографий
         if int(photo_quantity) > 0:
-            data_with_photos = search_for_photos(result, int(photo_quantity))
+            data_with_photos = search_for_photos(result, int(photo_quantity), headers_for_parsing)
             return data_with_photos
         return result
     else:
