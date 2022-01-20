@@ -4,6 +4,8 @@ from data_base import sqlite_db, user_data
 from telebot import types
 from botrequests import lowprice
 from telegram_bot_calendar import DetailedTelegramCalendar
+from telebot.types import InputMediaPhoto
+import datetime
 
 
 bot = telebot.TeleBot(config('Token'))
@@ -44,7 +46,8 @@ def calendar_checkin(message):
     user = user_data.User.get_user(message.chat.id)
     user.create_city(message.text)
     # Вывод клавиатуры для записи даты вьезда
-    calendar, step = DetailedTelegramCalendar(calendar_id=1).build()
+    now = datetime.datetime.now().date()
+    calendar, step = DetailedTelegramCalendar(calendar_id=1, min_date=now).build()
     LSTEP = {"y": "год", "m": "месяц", "d": "день"}
     bot.send_message(message.chat.id, "Выберите когда будете заезжать")
     bot.send_message(message.chat.id,
@@ -54,7 +57,8 @@ def calendar_checkin(message):
 
 def calendar_checkout(message):
     """Вызов клавиатуры для записи даты отъезда пользователя"""
-    calendar, step = DetailedTelegramCalendar(calendar_id=2).build()
+    now = datetime.datetime.now().date()
+    calendar, step = DetailedTelegramCalendar(calendar_id=2, min_date=now).build()
     LSTEP = {"y": "год", "m": "месяц", "d": "день"}
     bot.send_message(message.chat.id, "Выберите когда будете уезжать")
     bot.send_message(message.chat.id,
@@ -65,7 +69,8 @@ def calendar_checkout(message):
 # call клавиатуры для записи даты въезда
 @bot.callback_query_handler(func=DetailedTelegramCalendar.func(calendar_id=1))
 def call(item):
-    result, key, step = DetailedTelegramCalendar(calendar_id=1, locale="ru").process(item.data)
+    now = datetime.datetime.now().date()
+    result, key, step = DetailedTelegramCalendar(calendar_id=1, locale="ru", min_date=now).process(item.data)
     if not result and key:
         LSTEP = {"y": "год", "m": "месяц", "d": "день"}
         bot.edit_message_text(f"Выберите {LSTEP[step]}",
@@ -81,7 +86,8 @@ def call(item):
 # call клавиатуры для записи даты отъезда
 @bot.callback_query_handler(func=DetailedTelegramCalendar.func(calendar_id=2))
 def call(item):
-    result, key, step = DetailedTelegramCalendar(calendar_id=2, locale="ru").process(item.data)
+    now = datetime.datetime.now().date()
+    result, key, step = DetailedTelegramCalendar(calendar_id=2, locale="ru", min_date=now).process(item.data)
     if not result and key:
         LSTEP = {"y": "год", "m": "месяц", "d": "день"}
         bot.edit_message_text(f"Выберите {LSTEP[step]}",
@@ -102,7 +108,7 @@ def request_of_quantity(message):
 
 
 def quantity(message):
-    """Вызов пользователя из User и запись количества отелей в User""" 
+    """Вызов пользователя из User и запись количества отелей в User"""
     try:
         digit = int(message.text)
         user = user_data.User.get_user(message.chat.id)
@@ -184,14 +190,20 @@ def lowprice_command(message):
                 bot.send_message(message.chat.id, "Вы некорректно указали даты:")
                 bot.send_message(message.chat.id, f"Цена: {item[3]} (цена за сутки)")
             bot.send_message(message.chat.id,
-                             f"Ссылка на сайт: https://ru.hotels.com/ho{item[4]}")
+                             f"Ссылка на сайт: https://ru.hotels.com/ho{item[4]}",
+                             disable_web_page_preview=True)
             if isinstance(item[5], list):
+                all_photo = []
                 if photo > len(item[5]):
                     bot.send_message(message.chat.id,
                                      f"Вы хотели {photo} фотографи, но нашлось только {len(item[5])}")
                 for url_photo in item[5]:
                     url_photo = url_photo.format(size="b")
-                    bot.send_photo(message.chat.id, photo=url_photo)
+                    all_photo.append(url_photo)
+                media_group = []
+                for url in all_photo:
+                    media_group.append(InputMediaPhoto(media=url))
+                bot.send_media_group(message.chat.id, media=media_group)
             bot.send_message(message.chat.id, "="*30)
         bot.send_message(message.chat.id, "Если хотите продолжить, введите '/start'")
     else:
