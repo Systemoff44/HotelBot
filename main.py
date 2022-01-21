@@ -1,3 +1,4 @@
+from logging import warning
 from decouple import config
 import telebot
 from data_base import sqlite_db, user_data
@@ -180,18 +181,26 @@ def lowprice_command(message):
         if quantity > len(parsing_data):
             bot.send_message(message.chat.id,
                              f"Вы запрашивали {quantity} отелей, но нашлось только {len(parsing_data)}")
+        # Сбор данных и отсылка сообщения
         for item in parsing_data:
-            bot.send_message(message.chat.id, f"Название: {item[0]}")
-            bot.send_message(message.chat.id, f"Адрес: {item[1]}")
-            bot.send_message(message.chat.id, f"От центра: {item[2]}")
+            message_to_user = []
+            name = f"Название: {item[0]}"
+            message_to_user.append(name)
+            adress = f"Адрес: {item[1]}"
+            message_to_user.append(adress)
+            center_location = f"От центра: {item[2]}"
+            message_to_user.append(center_location)
             if len(item) > 6:
-                bot.send_message(message.chat.id, f"Цена: {item[3]}, {item[6]}")
+                price = f"Цена: {item[3]}, {item[6]}"
+                message_to_user.append(price)
             else:
-                bot.send_message(message.chat.id, "Вы некорректно указали даты:")
-                bot.send_message(message.chat.id, f"Цена: {item[3]} (цена за сутки)")
-            bot.send_message(message.chat.id,
-                             f"Ссылка на сайт: https://ru.hotels.com/ho{item[4]}",
-                             disable_web_page_preview=True)
+                price = f"Вы некорректно указали даты:\nЦена: {item[3]} (цена за сутки)"
+                message_to_user.append(price)
+            web_link = f"Ссылка на сайт: https://ru.hotels.com/ho{item[4]}"
+            message_to_user.append(web_link)
+            answer = "\n".join(message_to_user)
+            bot.send_message(message.chat.id, answer, disable_web_page_preview=True)
+            # Проверка, есть ли фотографии и отправка сообщения
             if isinstance(item[5], list):
                 all_photo = []
                 if photo > len(item[5]):
@@ -204,7 +213,6 @@ def lowprice_command(message):
                 for url in all_photo:
                     media_group.append(InputMediaPhoto(media=url))
                 bot.send_media_group(message.chat.id, media=media_group)
-            bot.send_message(message.chat.id, "="*30)
         bot.send_message(message.chat.id, "Если хотите продолжить, введите '/start'")
     else:
         bot.send_message(message.chat.id, "Не корректно введен город")
