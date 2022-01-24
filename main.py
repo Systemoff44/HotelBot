@@ -1,12 +1,15 @@
-from logging import warning
 from decouple import config
 import telebot
 from data_base import sqlite_db, user_data
 from telebot import types
 from botrequests import lowprice
-from telegram_bot_calendar import DetailedTelegramCalendar
+from telegram_bot_calendar import WYearTelegramCalendar
 from telebot.types import InputMediaPhoto
 import datetime
+from loguru import logger
+
+logger.add("file_{time}.log", format="{time} | {level} | {message}", level="INFO")
+logger.debug("Debag message")
 
 
 bot = telebot.TeleBot(config('Token'))
@@ -22,17 +25,20 @@ keyboard.add("/cancel")
 
 
 # начало работы команда start и help
+@logger.catch
 @bot.message_handler(commands=["start", "help"])
 def start_message(message):
     # Выводит клавиатуру с кнопками
     bot.send_message(message.chat.id, "Выберите команду", reply_markup=keyboard)
 
 # Кнопка прерывания запроса
+@logger.catch
 @bot.message_handler(commands=["cancel"])
 def start_message(message):
     # выводит прощание и клавиатуру с кнопками
     bot.send_message(message.chat.id, "До свидания!", reply_markup=types.ReplyKeyboardRemove())
 
+@logger.catch
 @bot.message_handler(commands=["lowprice", "highprice", "bestdeal", "history"])
 def all_commands(message):
     # Вызов (вызов и создание) пользователя в классе User и запись комманды в класс User 
@@ -41,26 +47,26 @@ def all_commands(message):
     bot.send_message(message.chat.id, "Введите город")
     bot.register_next_step_handler(message, calendar_checkin)
 
-
+@logger.catch
 def calendar_checkin(message):
     """Вызов пользователся из класса User, запись города в класс User"""
     user = user_data.User.get_user(message.chat.id)
     user.create_city(message.text)
     # Вывод клавиатуры для записи даты вьезда
     now = datetime.datetime.now().date()
-    calendar, step = DetailedTelegramCalendar(calendar_id=1, min_date=now).build()
-    LSTEP = {"y": "год", "m": "месяц", "d": "день"}
+    calendar, step = WYearTelegramCalendar(calendar_id=1, min_date=now, locale="ru").build()
+    LSTEP = {"m": "месяц", "d": "день"}
     bot.send_message(message.chat.id, "Выберите когда будете заезжать")
     bot.send_message(message.chat.id,
                      f"Выберите {LSTEP[step]}",
                      reply_markup=calendar)
 
-
+@logger.catch
 def calendar_checkout(message):
     """Вызов клавиатуры для записи даты отъезда пользователя"""
     now = datetime.datetime.now().date()
-    calendar, step = DetailedTelegramCalendar(calendar_id=2, min_date=now).build()
-    LSTEP = {"y": "год", "m": "месяц", "d": "день"}
+    calendar, step = WYearTelegramCalendar(calendar_id=2, min_date=now, locale="ru").build()
+    LSTEP = {"m": "месяц", "d": "день"}
     bot.send_message(message.chat.id, "Выберите когда будете уезжать")
     bot.send_message(message.chat.id,
                      f"Выберите {LSTEP[step]}",
@@ -68,12 +74,13 @@ def calendar_checkout(message):
 
 
 # call клавиатуры для записи даты въезда
-@bot.callback_query_handler(func=DetailedTelegramCalendar.func(calendar_id=1))
+@logger.catch
+@bot.callback_query_handler(func=WYearTelegramCalendar.func(calendar_id=1))
 def call(item):
     now = datetime.datetime.now().date()
-    result, key, step = DetailedTelegramCalendar(calendar_id=1, locale="ru", min_date=now).process(item.data)
+    result, key, step = WYearTelegramCalendar(calendar_id=1, locale="ru", min_date=now).process(item.data)
     if not result and key:
-        LSTEP = {"y": "год", "m": "месяц", "d": "день"}
+        LSTEP = {"m": "месяц", "d": "день"}
         bot.edit_message_text(f"Выберите {LSTEP[step]}",
                               item.message.chat.id,
                               item.message.message_id,
@@ -85,12 +92,13 @@ def call(item):
         calendar_checkout(item.message)
 
 # call клавиатуры для записи даты отъезда
-@bot.callback_query_handler(func=DetailedTelegramCalendar.func(calendar_id=2))
+@logger.catch
+@bot.callback_query_handler(func=WYearTelegramCalendar.func(calendar_id=2))
 def call(item):
     now = datetime.datetime.now().date()
-    result, key, step = DetailedTelegramCalendar(calendar_id=2, locale="ru", min_date=now).process(item.data)
+    result, key, step = WYearTelegramCalendar(calendar_id=2, locale="ru", min_date=now).process(item.data)
     if not result and key:
-        LSTEP = {"y": "год", "m": "месяц", "d": "день"}
+        LSTEP = {"m": "месяц", "d": "день"}
         bot.edit_message_text(f"Выберите {LSTEP[step]}",
                               item.message.chat.id,
                               item.message.message_id,
@@ -102,12 +110,14 @@ def call(item):
         request_of_quantity(item.message)
 
 
+@logger.catch
 def request_of_quantity(message):
     """запрос у пользователя необходимого кол-ва отелей"""
     bot.send_message(message.chat.id, "Введите количество отелей")
     bot.register_next_step_handler(message, quantity)
 
 
+@logger.catch
 def quantity(message):
     """Вызов пользователя из User и запись количества отелей в User"""
     try:
@@ -121,6 +131,7 @@ def quantity(message):
         bot.register_next_step_handler(message, quantity)
 
 
+@logger.catch
 def photo(message):
     """ Вызов пользователя из User и запись кол-во фото - 0 в User,
         если пользователь вводит 'нет'"""
@@ -144,6 +155,7 @@ def photo(message):
         bot.register_next_step_handler(message, photo)
 
 
+@logger.catch
 def second_quantity(message):
     """ Вызов пользователя из User и запись кол-во фотографий в User"""
     try:
@@ -165,6 +177,7 @@ def second_quantity(message):
 
 
 # реализация команды lowprice
+@logger.catch
 def lowprice_command(message):
     """Вызов пользователя, его id, запрос на необходимые парсинги в файле lowprice
        и вывод полученных данных пользователя"""
@@ -221,6 +234,7 @@ def lowprice_command(message):
 
 
 # если пользователем введена не команда
+@logger.catch
 @bot.message_handler(content_types=["text"])
 def error_message(message):
     bot.send_message(message.chat.id, "Выберите команду из списка",
