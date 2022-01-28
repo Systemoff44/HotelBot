@@ -2,8 +2,14 @@ import requests
 import json
 from data_base import sqlite_db
 from decouple import config
+from loguru import logger
 
 
+logger.add("file_{time}.log", format="{time} | {level} | {message}", level="INFO")
+logger.debug("Debag message")
+
+
+@logger.catch
 def fetch_all_data(city, headers):
     """Парсинг данных по определенному городу
 
@@ -27,6 +33,7 @@ def fetch_all_data(city, headers):
         return all_id
 
 
+@logger.catch
 def fetch_needed_data(struct, key):
     """Проходится по словарю с данными и извлекает все по выбранному ключу
 
@@ -49,7 +56,8 @@ def fetch_needed_data(struct, key):
                 yield forth_item
 
 
-def fetch_hotel_details(number_id, data_in, data_out, headers):
+@logger.catch
+def fetch_hotel_details(number_id, data_in, data_out, headers, price="PRICE"):
     """Делает парсинг всех данных по определенному id места
 
     Args:
@@ -64,7 +72,7 @@ def fetch_hotel_details(number_id, data_in, data_out, headers):
 
     querystring = {"destinationId": number_id, "pageNumber": "1", "pageSize": "25",
                    "checkIn": data_in, "checkOut": data_out, "adults1": "1",
-                   "sortOrder": "PRICE", "locale": "ru_RU", "currency": "RUB"}
+                   "sortOrder": price, "locale": "ru_RU", "currency": "RUB"}
 
     response = requests.request("GET", url, headers=headers, params=querystring)
     all_details = json.loads(response.text)
@@ -72,6 +80,7 @@ def fetch_hotel_details(number_id, data_in, data_out, headers):
     return all_details
 
 
+@logger.catch
 def fetch_hotel_photos(hotel_id, headers):
     url = "https://hotels4.p.rapidapi.com/properties/get-hotel-photos"
 
@@ -83,6 +92,7 @@ def fetch_hotel_photos(hotel_id, headers):
     return all_photos
 
 
+@logger.catch
 def fetch_all_data_from_parsing(all_data, city):
     """Извлечение необходимых данных по каждому отелю из словаря
 
@@ -122,6 +132,7 @@ def fetch_all_data_from_parsing(all_data, city):
             return
 
 
+@logger.catch
 def search_for_photos(data, quantity, head_parsing):
     """Получает готовый список из отелей и вместо переменной id записывает
        список из url картинок. Возвращает обратно список отелей
@@ -154,6 +165,7 @@ def search_for_photos(data, quantity, head_parsing):
     return new_data_with_photos
 
 
+@logger.catch
 def start_of_searh(user_id):
     """Оснавная функция,которая запускает весь процесс
 

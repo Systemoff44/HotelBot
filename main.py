@@ -2,7 +2,7 @@ from decouple import config
 import telebot
 from data_base import sqlite_db, user_data
 from telebot import types
-from botrequests import lowprice
+from botrequests import highprice, lowprice
 from telegram_bot_calendar import WYearTelegramCalendar
 from telebot.types import InputMediaPhoto
 import datetime
@@ -143,8 +143,8 @@ def photo(message):
         # запись данных этого пользователя в бд
         sqlite_db.create_request(id)
         command = user.get_command()
-        if command == "/lowprice":
-            lowprice_command(message)
+        if command in ["/lowprice", "/highprice"]:
+            lowprice_highprice_command(message)
 
     elif str(message.text).lower() == "да":
         bot.send_message(message.chat.id, "Сколько фотографий?")
@@ -167,8 +167,8 @@ def second_quantity(message):
         id = user.get_id()
         sqlite_db.create_request(id)
         command = user.get_command()
-        if command == "/lowprice":
-            lowprice_command(message)
+        if command in ["/lowprice", "/highprice"]:
+            lowprice_highprice_command(message)
         else:
             bot.send_message(message.chat.id, command)
     except ValueError:
@@ -178,7 +178,7 @@ def second_quantity(message):
 
 # реализация команды lowprice
 @logger.catch
-def lowprice_command(message):
+def lowprice_highprice_command(message):
     """Вызов пользователя, его id, запрос на необходимые парсинги в файле lowprice
        и вывод полученных данных пользователя"""
 
@@ -186,7 +186,14 @@ def lowprice_command(message):
     id = user.get_id()
     bot.send_message(message.chat.id, "Подождите, ищем...")
 
-    parsing_data = lowprice.start_of_searh(id)
+    command = user.get_command()
+    if command == "/lowprice":
+        parsing_data = lowprice.start_of_searh(id)
+    elif command == "/highprice":
+        parsing_data = highprice.start_of_searh(id)
+    else:
+        bot.send_message(message.chat.id, "Че-то не то")
+
     if parsing_data:
         # Запрос из бд количество отелей и фотографий, которые ввел пользователь,
         # если цифра меньше, выведется сообщение о том, что нашлось меньше, чем нужно
@@ -231,7 +238,6 @@ def lowprice_command(message):
         bot.send_message(message.chat.id, "Не корректно введен город")
         bot.send_message(message.chat.id, "Выберите команду из списка",
                          reply_markup=keyboard)
-
 
 # если пользователем введена не команда
 @logger.catch
