@@ -1,7 +1,9 @@
+from typing import Dict
+
 class User:
     """Класс юзер, для получения и сбора промежуточных данных"""
     
-    users = dict()
+    users: Dict = dict()
 
     def __init__(self, chat_id):
         self.chat_id = chat_id
@@ -11,6 +13,9 @@ class User:
         self.checkout = None
         self.quantity = None
         self.photo = None
+        self.range = None
+        self.distance = None
+        self.time = None
         User.add_user(chat_id, self)
 
     @classmethod
@@ -47,6 +52,15 @@ class User:
     def create_photo(self, photo):
         self.photo = photo
 
+    def create_range(self, range):
+        self.range = range
+
+    def create_distance(self, distance):
+        self.distance = distance
+
+    def create_time(self, time):
+        self.time = time
+
     def get_city(self):
         return self.city
 
@@ -64,3 +78,12 @@ class User:
 
     def get_photo(self):
         return self.photo
+
+    def get_range(self):
+        return self.range
+
+    def get_distance(self):
+        return self.distance
+
+    def get_time(self):
+        return self.time

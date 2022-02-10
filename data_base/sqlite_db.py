@@ -18,16 +18,20 @@ class DBHelper:
         self.quantity = None
         self.photo = None
         self.command = None
+        self.range = None
+        self.distance = None
+        self.time = None
 
     def setup(self):
-        create = "CREATE TABLE IF NOT EXISTS data (user_id, city, checkin, checkout, quantity, photo, command)"
+        create = "CREATE TABLE IF NOT EXISTS data (user_id, city, checkin, checkout, quantity, photo, command, range, distance, time)"
         self.conn.execute(create)
         self.conn.commit()
 
     def add_data(self):
-        insert = "INSERT INTO data(user_id, city, checkin, checkout, quantity, photo, command) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        insert = "INSERT INTO data(user_id, city, checkin, checkout, quantity, photo, command, range, distance, time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         self.conn.execute(insert, (self.user_id, self.city, self.checkin,
-                                   self.checkout, self.quantity, self.photo, self.command))
+                                   self.checkout, self.quantity, self.photo,
+                                   self.command, self.range, self.distance, self.time))
         self.conn.commit()
 
     # def delete_item(self, item_text):
@@ -45,6 +49,9 @@ class DBHelper:
         select_quantity = "SELECT quantity FROM data WHERE user_id = (?) ORDER BY ROWID DESC LIMIT 1"
         select_photo = "SELECT photo FROM data WHERE user_id = (?) ORDER BY ROWID DESC LIMIT 1"
         select_command = "SELECT command FROM data WHERE user_id = (?) ORDER BY ROWID DESC LIMIT 1"
+        select_range = "SELECT range FROM data WHERE user_id = (?) ORDER BY ROWID DESC LIMIT 1"
+        select_distance = "SELECT distance FROM data WHERE user_id = (?) ORDER BY ROWID DESC LIMIT 1"
+        select_time = "SELECT time FROM data WHERE user_id = (?) ORDER BY ROWID DESC LIMIT 1"
         cur = self.conn.cursor()
         user_id = cur.execute(select_user_id, args).fetchone()[0]
         city = cur.execute(select_city, args).fetchone()[0]
@@ -53,7 +60,20 @@ class DBHelper:
         quantity = cur.execute(select_quantity, args).fetchone()[0]
         photo = cur.execute(select_photo, args).fetchone()[0]
         command = cur.execute(select_command, args).fetchone()[0]
-        return user_id, city, checkin, checkout, quantity, photo, command
+        range = cur.execute(select_range, args).fetchone()[0]
+        distance = cur.execute(select_distance, args).fetchone()[0]
+        time = cur.execute(select_time, args).fetchone()[0]
+        return user_id, city, checkin, checkout, quantity, photo, command, range, distance, time
+
+
+    def fetch_history_data(self):
+        args = (self.id_for_search, )
+        select_data = "SELECT * FROM data WHERE user_id = (?)"
+        cur = self.conn.cursor()
+        for item in cur.execute(select_data, args).fetchall():
+            yield (item[1], item[2], item[3],
+                   item[4], item[5], item[6],
+                   item[7], item[8], item[9])
 
 
 def create_request(id):
@@ -67,6 +87,9 @@ def create_request(id):
     quantity = user.get_quantity()
     photo = user.get_photo()
     command = user.get_command()
+    range = user.get_range()
+    distance = user.get_distance()
+    time = user.get_time()
     db.user_id = user_id
     db.city = city
     db.checkin = checkin
@@ -74,6 +97,9 @@ def create_request(id):
     db.quantity = quantity
     db.photo = photo
     db.command = command
+    db.range = range
+    db.distance = distance
+    db.time = time
     db.add_data()
 
 
@@ -87,8 +113,8 @@ def fetch_all_data(id):
     """
     db = DBHelper(id)
     db.setup()
-    user_id, city, checkin, checkout, quantity, photo, command = db.get_items()
-    one_data = (user_id, city, checkin, checkout, quantity, photo, command)
+    user_id, city, checkin, checkout, quantity, photo, command, range, distance, time = db.get_items()
+    one_data = (user_id, city, checkin, checkout, quantity, photo, command, range, distance, time)
     return one_data
 
 
@@ -104,6 +130,18 @@ def fetch_sqlite_data(id):
     return data[1], data[2], data[3], data[4], data[5]
 
 
+def fetch_sqlite_bestdeal(id):
+    """Возвращает последние записанные данные (все, кроме комманды пользователя)
+
+    Returns:
+        (str): переменные: city(город), checkin (дата въезда),
+        checkout(дата окончания брони), quantity(количество отелей),
+        photo(количесто фотографий)
+    """
+    data = fetch_all_data(id)
+    return data[1], data[4], data[5], data[7], data[8]
+
+
 def fetch_quantities_from_sqlite(id):
     """Возвращает введенные пользователем количество отелей и фотографий
 
@@ -112,3 +150,10 @@ def fetch_quantities_from_sqlite(id):
     """
     data = fetch_all_data(id)
     return data[4], data[5]
+
+
+def fetch_history(id):
+    db = DBHelper(id)
+    db.setup()
+    result = list(db.fetch_history_data())
+    return result

@@ -3,6 +3,8 @@ import json
 from data_base import sqlite_db
 from decouple import config
 from loguru import logger
+from typing import Dict, Optional, Tuple, Any, Union, List
+from collections.abc import Iterable
 
 
 logger.add("file_{time}.log", format="{time} | {level} | {message}", level="INFO")
@@ -10,7 +12,7 @@ logger.debug("Debag message")
 
 
 @logger.catch
-def fetch_all_data(city, headers):
+def fetch_all_data(city: str, headers: str) -> Optional[Dict]:
     """Парсинг данных по определенному городу
 
     Args:
@@ -34,7 +36,7 @@ def fetch_all_data(city, headers):
 
 
 @logger.catch
-def fetch_needed_data(struct, key):
+def fetch_needed_data(struct: Dict, key: str) -> Iterable[Dict]:
     """Проходится по словарю с данными и извлекает все по выбранному ключу
 
     Args:
@@ -57,7 +59,9 @@ def fetch_needed_data(struct, key):
 
 
 @logger.catch
-def fetch_hotel_details(number_id, data_in, data_out, headers, price="PRICE"):
+def fetch_hotel_details(number_id: int, data_in: int, data_out: int,
+                        headers: str, price="PRICE", price_min=None, 
+                        price_max=None) -> Dict:
     """Делает парсинг всех данных по определенному id места
 
     Args:
@@ -72,6 +76,8 @@ def fetch_hotel_details(number_id, data_in, data_out, headers, price="PRICE"):
 
     querystring = {"destinationId": number_id, "pageNumber": "1", "pageSize": "25",
                    "checkIn": data_in, "checkOut": data_out, "adults1": "1",
+                   "priceMin": price_min,
+                   "priceMax": price_max,
                    "sortOrder": price, "locale": "ru_RU", "currency": "RUB"}
 
     response = requests.request("GET", url, headers=headers, params=querystring)
@@ -81,7 +87,8 @@ def fetch_hotel_details(number_id, data_in, data_out, headers, price="PRICE"):
 
 
 @logger.catch
-def fetch_hotel_photos(hotel_id, headers):
+def fetch_hotel_photos(hotel_id: int, headers: str) -> Dict:
+    """ Парсинг данных с фотографиями"""
     url = "https://hotels4.p.rapidapi.com/properties/get-hotel-photos"
 
     querystring = {"id": hotel_id}
@@ -123,6 +130,7 @@ def fetch_all_data_from_parsing(all_data, city):
                 if "info" in all_data["data"]["body"]["searchResults"]["results"][index]["ratePlan"]["price"]:
                     info = all_data["data"]["body"]["searchResults"]["results"][index]["ratePlan"]["price"]["info"]
                     result = (name, adress, center, price, id, photo, info)
+                    print(result)
                 else:
                     result = (name, adress, center, price, id, photo)
                 yield result
@@ -184,7 +192,6 @@ def start_of_searh(user_id):
     hotels_data = fetch_all_data(city_name, headers_for_parsing)
     if hotels_data:
         all_id = list(fetch_needed_data(hotels_data, "destinationId"))
-
         hotels = []
         for id in all_id:
             data = fetch_hotel_details(id, hotel_checkin, hotel_checkout, headers_for_parsing)
