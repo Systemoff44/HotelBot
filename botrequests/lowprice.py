@@ -3,12 +3,9 @@ import json
 from data_base import sqlite_db
 from decouple import config
 from loguru import logger
-from typing import Dict, Optional, Tuple, Any, Union, List
+from typing import Dict, Optional, Tuple, Union
 from collections.abc import Iterable
 
-
-logger.add("file_{time}.log", format="{time} | {level} | {message}", level="INFO")
-logger.debug("Debag message")
 
 
 @logger.catch

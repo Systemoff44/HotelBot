@@ -9,10 +9,13 @@ import datetime
 from loguru import logger
 import re
 from typing import Any
+from loggingconfig import log_file
+import sys
 
 
-logger.add("file_{time}.log", format="{time} | {level} | {message}", level="INFO")
-logger.debug("Debag message")
+# logger.add("file_{time}.log", format="{time} | {level} | {message}", level="INFO")
+# logger.debug("Debag message")
+log_file()
 
 
 bot = telebot.TeleBot(config('Token'))
@@ -32,6 +35,10 @@ keyboard.add("/cancel")
 @bot.message_handler(commands=["start", "help"])
 def start_message(message: Any) -> None:
     """ Выводит клавиатуру с кнопками"""
+    
+    user = user_data.User.get_user(message.chat.id)
+    user_id = user.get_id()
+    logger.info(f"{user_id} запустил бота")
     bot.send_message(message.chat.id, "Выберите команду", reply_markup=keyboard)
 
 
@@ -40,6 +47,10 @@ def start_message(message: Any) -> None:
 @bot.message_handler(commands=["cancel"])
 def farewell_message(message: Any) -> None:
     """ Выводит прощание и клавиатуру с кнопками"""
+    
+    user = user_data.User.get_user(message.chat.id)
+    user_id = user.get_id()
+    logger.info(f"{user_id} прервал работу бота")
     bot.send_message(message.chat.id, "До свидания!", reply_markup=types.ReplyKeyboardRemove())
 
 
@@ -50,8 +61,10 @@ def history_command(message: Any) -> None:
     """После нажатия кнопки /history получает id пользователя,
        делает запрос в бд по id
        и сохраняет в словарь всю историю."""
+    
     user = user_data.User.get_user(message.chat.id)
     user_id = user.get_id()
+    logger.info(f"{user_id} включил кнопку '/history'")
     result = sqlite_db.fetch_history(user_id)
     # Инициализация класса History для записи туда истории запросов юзера
     user_history = history_data.History.get_user(message.chat.id)
@@ -63,7 +76,7 @@ def history_command(message: Any) -> None:
         keyboard.add(button)
         all_users_history[index] = (item[0], item[1], item[2],
                                     item[3], item[4], item[5],
-                                    item[6], item[7], item[8])
+                                    item[6], item[7], item[8], item[9])
         text = f'Команда запроса:\n{item[5]}\nГород:\n{item[0]}\nВремя запроса:\n{item[8]}'
         bot.send_message(message.chat.id, text, reply_markup=keyboard)
     user_history.create_all_data(all_users_history)
@@ -74,7 +87,10 @@ def history_command(message: Any) -> None:
 def all_commands(message: Any) -> None:
     """Вызов (вызов и создание) пользователя в классе User и запись
        комманды в класс User"""
+    
     user = user_data.User.get_user(message.chat.id)
+    user_id = user.get_id()
+    logger.info(f"{user_id} ввел команду {message.text}")
     # Запись команды в класс User
     user.create_command(message.text)
     now = datetime.datetime.now()
@@ -87,7 +103,14 @@ def all_commands(message: Any) -> None:
 @logger.catch
 def calendar_checkin(message: Any) -> None:
     """Вызов пользователся из класса User, запись города в класс User"""
+
+    if message.text == "/cancel":
+        farewell_message(message)
+        sys.exit()
+    
     user = user_data.User.get_user(message.chat.id)
+    user_id = user.get_id()
+    logger.info(f"{user_id} ввел город")
     user.create_city(message.text)
     command = user.get_command()
     if command in ["/lowprice", "/highprice"]:
@@ -108,6 +131,11 @@ def calendar_checkin(message: Any) -> None:
 @logger.catch
 def calendar_checkout(message):
     """Вызов клавиатуры для записи даты отъезда пользователя"""
+
+    if message.text == "/cancel":
+        farewell_message(message)
+        sys.exit()
+
     now = datetime.datetime.now().date()
     calendar, step = WYearTelegramCalendar(calendar_id=2, min_date=now, locale="ru").build()
     LSTEP = {"m": "месяц", "d": "день"}
@@ -121,6 +149,7 @@ def calendar_checkout(message):
 @bot.callback_query_handler(func=WYearTelegramCalendar.func(calendar_id=1))
 def first_call(item: Any) -> None:
     """ Call клавиатуры для записи даты въезда"""
+
     now = datetime.datetime.now().date()
     result, key, step = WYearTelegramCalendar(calendar_id=1, locale="ru", min_date=now).process(item.data)
     if not result and key:
@@ -132,6 +161,8 @@ def first_call(item: Any) -> None:
     if result:
         bot.send_message(item.message.chat.id, f"Вы заезжаете {result}")
         user = user_data.User.get_user(item.message.chat.id)
+        user_id = user.get_id()
+        logger.info(f"{user_id} ввел даты вьезда")
         user.create_checkin(result)
         calendar_checkout(item.message)
 
@@ -140,6 +171,7 @@ def first_call(item: Any) -> None:
 @bot.callback_query_handler(func=WYearTelegramCalendar.func(calendar_id=2))
 def second_call(item: Any) -> None:
     """ Call клавиатуры для записи даты отъезда"""
+
     now = datetime.datetime.now().date()
     result, key, step = WYearTelegramCalendar(calendar_id=2, locale="ru", min_date=now).process(item.data)
     if not result and key:
@@ -151,6 +183,8 @@ def second_call(item: Any) -> None:
     if result:
         bot.send_message(item.message.chat.id, f"Вы уезжаете {result}")
         user = user_data.User.get_user(item.message.chat.id)
+        user_id = user.get_id()
+        logger.info(f'{user_id} ввел даты отъезда')
         user.create_checkout(result)
         request_of_quantity(item.message)
 
@@ -160,31 +194,27 @@ def second_call(item: Any) -> None:
 def callback_inline(call: Any) -> None:
     """ Хэндлер для кнопок с запросами, смодулированных при вызове
         комманды /history """
+
+    user = user_data.User.get_user(call.message.chat.id)
+    user_id = user.get_id()
+    logger.info(f"{user_id} выбрал из истории данные № {int(call.data)}")
     user_choice = int(call.data)
-    # Создание повторного запроса (запись данных в класс User,
-    # затем создание строки из данных в бд)
     user_history = history_data.History.get_user(call.message.chat.id)
     data = user_history.get_all_data()
-    user = user_data.User.get_user(call.message.chat.id)
-    id = user.get_id()
-    user.create_city(data[user_choice][0])
-    user.create_checkin(data[user_choice][1])
-    user.create_checkout(data[user_choice][2])
-    user.create_quantity(data[user_choice][3])
-    user.create_photo(data[user_choice][4])
-    user.create_command(data[user_choice][5])
-    user.create_range(data[user_choice][6])
-    user.create_distance(data[user_choice][7])
-    user.create_time(data[user_choice][8])
-    sqlite_db.create_request(id)
-    bot.send_message(call.message.chat.id, "Повторяем запрос")
-    realization_of_command(call.message)
+    bot.send_message(call.message.chat.id, data[user_choice][9])
 
 
 @logger.catch
 def range_of_price(message: Any) -> None:
     """ Запрос на введение диапазона цен """
+
+    if message.text == "/cancel":
+        farewell_message(message)
+        sys.exit()
+
     user = user_data.User.get_user(message.chat.id)
+    user_id = user.get_id()
+    logger.info(f"{user_id} записал ценовой диапазон")
     model = r'\d+\s\d+'
     check_if_match = re.fullmatch(model, message.text)
     if check_if_match:
@@ -200,9 +230,16 @@ def range_of_price(message: Any) -> None:
 @logger.catch
 def distance_from_center(message: Any) -> None:
     """ Записывает в класс User удаленность от центра """
+
+    if message.text == "/cancel":
+        farewell_message(message)
+        sys.exit()
+
+    user = user_data.User.get_user(message.chat.id)
+    user_id = user.get_id()
+    logger.info(f"{user_id} записал удаленность от центра")
     try:
         digit = int(message.text)
-        user = user_data.User.get_user(message.chat.id)
         user.create_distance(digit)
         request_of_quantity(message)
     except ValueError:
@@ -220,9 +257,16 @@ def request_of_quantity(message: Any) -> None:
 @logger.catch
 def quantity(message: Any) -> None:
     """Запрос у пользователя необходимое кол-во фотографий"""
+
+    if message.text == "/cancel":
+        farewell_message(message)
+        sys.exit()
+
+    user = user_data.User.get_user(message.chat.id)
+    user_id = user.get_id()
+    logger.info(f"{user_id} записал кол-во отелей")
     try:
         digit = int(message.text)
-        user = user_data.User.get_user(message.chat.id)
         user.create_quantity(digit)
         bot.send_message(message.chat.id, "Нужны фотографии?")
         bot.register_next_step_handler(message, photo)
@@ -235,8 +279,15 @@ def quantity(message: Any) -> None:
 def photo(message: Any) -> None:
     """ Вызов пользователя из User и запись кол-во фото - 0 в User,
         если пользователь вводит 'нет'"""
+
+    if message.text == "/cancel":
+        farewell_message(message)
+        sys.exit()
+    
     user = user_data.User.get_user(message.chat.id)
+    user_id = user.get_id()
     if str(message.text).lower() == "нет":
+        logger.info(f"{user_id} записал кол-во фотографий")
         user.create_photo(0)
         bot.send_message(message.chat.id, "Записал")
         id = user.get_id()
@@ -258,14 +309,21 @@ def photo(message: Any) -> None:
 @logger.catch
 def second_quantity(message: Any) -> None:
     """ Вызов пользователя из User и запись кол-во фотографий в User"""
+
+    if message.text == "/cancel":
+        farewell_message(message)
+        sys.exit()
+
+    user = user_data.User.get_user(message.chat.id)
+    user_id = user.get_id()
+    logger.info(f"{user_id} записал кол-во фотографий")
     try:
         digit = int(message.text)
-        user = user_data.User.get_user(message.chat.id)
         user.create_photo(digit)
         bot.send_message(message.chat.id, "Записал!")
         # Запись данных этого пользователя в бд
-        id = user.get_id()
-        sqlite_db.create_request(id)
+        logger.info(f"{user_id}: Создание записи в бд")
+        sqlite_db.create_request(user_id)
         command = user.get_command()
         if command in ["/lowprice", "/highprice", "/bestdeal"]:
             realization_of_command(message)
@@ -276,7 +334,7 @@ def second_quantity(message: Any) -> None:
         bot.register_next_step_handler(message, second_quantity)
 
 
-# реализация команды lowprice
+# реализация команды lowprice, highprice или bestdeal
 @logger.catch
 def realization_of_command(message: Any) -> None:
     """Вызов пользователя, его id, запрос на необходимые парсинги в файле lowprice
@@ -284,17 +342,17 @@ def realization_of_command(message: Any) -> None:
 
     user = user_data.User.get_user(message.chat.id)
     id = user.get_id()
+    time = user.get_time()
     bot.send_message(message.chat.id, "Подождите, ищем...")
 
     command = user.get_command()
+    logger.info(f"{id}: Реализация команды {command}")
     if command == "/lowprice":
         parsing_data = lowprice.start_of_searh(id)
     elif command == "/highprice":
         parsing_data = highprice.start_of_searh(id)
     elif command == "/bestdeal":
         parsing_data = bestdeal.start_of_searh(id)
-    else:
-        bot.send_message(message.chat.id, "Че-то не то")
 
     if parsing_data:
         if isinstance(parsing_data, str):
@@ -307,6 +365,7 @@ def realization_of_command(message: Any) -> None:
                 bot.send_message(message.chat.id,
                                  f"Вы запрашивали {quantity} отелей, но нашлось только {len(parsing_data)}")
             # Сбор данных и отсылка сообщения
+            history = []
             for item in parsing_data:
                 message_to_user = []
                 name = f"Название: {item[0]}"
@@ -321,23 +380,31 @@ def realization_of_command(message: Any) -> None:
                 else:
                     price = f"Вы некорректно указали даты:\nЦена: {item[3]} (цена за сутки)"
                     message_to_user.append(price)
-                web_link = f"Ссылка на сайт: https://ru.hotels.com/ho{item[4]}"
+                web_link = f"Ссылка на сайт: \nhttps://ru.hotels.com/ho{item[4]}"
                 message_to_user.append(web_link)
                 answer = "\n".join(message_to_user)
+
                 bot.send_message(message.chat.id, answer, disable_web_page_preview=True)
                 # Проверка, есть ли фотографии и отправка сообщения
                 if isinstance(item[5], list):
+                    message_to_user.append("Ссылки на фотографии:")
                     all_photo = []
                     if photo > len(item[5]):
-                        bot.send_message(message.chat.id,
-                                         f"Вы хотели {photo} фотографи, но нашлось только {len(item[5])}")
+                        photo_message = f"Вы хотели {photo} фотографи, но нашлось только {len(item[5])}"
+                        bot.send_message(message.chat.id, photo_message)
                     for url_photo in item[5]:
                         url_photo = url_photo.format(size="b")
                         all_photo.append(url_photo)
                     media_group = []
                     for url in all_photo:
                         media_group.append(InputMediaPhoto(media=url))
+                        message_to_user.append(url)
                     bot.send_media_group(message.chat.id, media=media_group)
+                answer = "\n".join(message_to_user)
+                history.append(answer)
+            # Запись полученных данных по отелям в бд
+            new_history = "\n\n=====================\n\n".join(history)
+            db.add_result(new_history, id, time)
             bot.send_message(message.chat.id, "Если хотите продолжить, введите '/start'")
     else:
         bot.send_message(message.chat.id, "Не корректно введен город")

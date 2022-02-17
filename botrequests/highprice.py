@@ -5,8 +5,6 @@ from data_base import sqlite_db
 from typing import Dict, List, Optional
 
 
-logger.add("file_{time}.log", format="{time} | {level} | {message}", level="INFO")
-logger.debug("Debag message")
 
 @logger.catch
 def start_of_searh(user_id):

@@ -5,9 +5,6 @@ from data_base import sqlite_db
 from typing import Any 
 
 
-logger.add("file_{time}.log", format="{time} | {level} | {message}", level="INFO")
-logger.debug("Debag message")
-
 @logger.catch
 def start_of_searh(user_id):
     """Оснавная функция,которая запускает весь процесс

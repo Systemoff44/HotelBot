@@ -21,25 +21,29 @@ class DBHelper:
         self.range = None
         self.distance = None
         self.time = None
+        self.result = None
 
     def setup(self):
-        create = "CREATE TABLE IF NOT EXISTS data (user_id, city, checkin, checkout, quantity, photo, command, range, distance, time)"
+        create = "CREATE TABLE IF NOT EXISTS data (user_id, city, checkin, checkout, quantity, photo, command, range, distance, time, result)"
         self.conn.execute(create)
         self.conn.commit()
 
     def add_data(self):
-        insert = "INSERT INTO data(user_id, city, checkin, checkout, quantity, photo, command, range, distance, time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        insert = "INSERT INTO data(user_id, city, checkin, checkout, quantity, photo, command, range, distance, time, result) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         self.conn.execute(insert, (self.user_id, self.city, self.checkin,
                                    self.checkout, self.quantity, self.photo,
-                                   self.command, self.range, self.distance, self.time))
+                                   self.command, self.range, self.distance, 
+                                   self.time, self.result))
+        self.conn.commit()
+    
+    
+    def add_result(self, result_data, id, user_time):
+        update = "UPDATE data SET result = (?) WHERE (user_id = (?)) AND (time = (?))"
+        cur = self.conn.cursor()
+        cur.execute(update, (result_data, id, user_time))
         self.conn.commit()
 
-    # def delete_item(self, item_text):
-    #     delete = "DELETE FROM items WHERE description = (?)"
-    #     args = (item_text, )
-    #     self.conn.execute(delete, args)
-    #     self.conn.commit()
-    #
+
     def get_items(self):
         args = (self.id_for_search, )
         select_user_id = "SELECT user_id FROM data WHERE user_id = (?) ORDER BY ROWID DESC LIMIT 1"
@@ -73,7 +77,8 @@ class DBHelper:
         for item in cur.execute(select_data, args).fetchall():
             yield (item[1], item[2], item[3],
                    item[4], item[5], item[6],
-                   item[7], item[8], item[9])
+                   item[7], item[8], item[9],
+                   item[10])
 
 
 def create_request(id):

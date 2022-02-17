@@ -126,3 +126,7 @@ dmypy.json
 
 # sqlite
 .db
+
+# logging file
+
+*config.py
