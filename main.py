@@ -383,11 +383,11 @@ def realization_of_command(message: Any) -> None:
                 web_link = f"Ссылка на сайт: \nhttps://ru.hotels.com/ho{item[4]}"
                 message_to_user.append(web_link)
                 answer = "\n".join(message_to_user)
+                history.append(answer)
 
                 bot.send_message(message.chat.id, answer, disable_web_page_preview=True)
                 # Проверка, есть ли фотографии и отправка сообщения
                 if isinstance(item[5], list):
-                    message_to_user.append("Ссылки на фотографии:")
                     all_photo = []
                     if photo > len(item[5]):
                         photo_message = f"Вы хотели {photo} фотографи, но нашлось только {len(item[5])}"
@@ -398,10 +398,8 @@ def realization_of_command(message: Any) -> None:
                     media_group = []
                     for url in all_photo:
                         media_group.append(InputMediaPhoto(media=url))
-                        message_to_user.append(url)
                     bot.send_media_group(message.chat.id, media=media_group)
-                answer = "\n".join(message_to_user)
-                history.append(answer)
+                
             # Запись полученных данных по отелям в бд
             new_history = "\n\n=====================\n\n".join(history)
             db.add_result(new_history, id, time)
